@@ -1,5 +1,5 @@
 {
-  "name": "@vue/reactivity",
+  "name": "@my-vue/reactivity",
   "version": "1.0.0",
   "description": "",
   "main": "index.ts",
@@ -22,6 +22,6 @@
   "license": "ISC",
   "packageManager": "pnpm@10.9.0",
   "dependencies": {
-    "@vue/shared": "workspace:*"
+    "@my-vue/shared": "workspace:*"
   }
 }

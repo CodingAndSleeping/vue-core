@@ -12,7 +12,7 @@
     "lib": ["esnext", "dom"], // 编译环境
     "baseUrl": ".", // 解析根路径
     "paths": {
-      "@vue/*": ["packages/*/src"] // 路径映射
+      "@my-vue/*": ["packages/*/src"] // 路径映射
     }
   }
 }
