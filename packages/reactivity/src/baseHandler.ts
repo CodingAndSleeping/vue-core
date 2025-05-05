@@ -1,6 +1,5 @@
 import { ReactiveFlags } from './contants'
-import { activeEffect, trigger } from './effect'
-import { track } from './effect'
+import { trigger, track } from './effect'
 
 // 响应性对象处理器
 export const mutableHandlers: ProxyHandler<any> = {

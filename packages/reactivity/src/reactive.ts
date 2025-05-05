@@ -6,7 +6,6 @@ import { mutableHandlers } from './baseHandler'
 const proxyMap = new WeakMap()
 
 function createReactiveObject(target) {
-  console.log('createReactiveObject', target)
   // 如果不是对象，直接返回
   if (!isObject(target)) {
     return target
