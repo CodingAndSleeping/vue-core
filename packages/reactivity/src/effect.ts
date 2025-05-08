@@ -10,7 +10,14 @@ export function effect(fn, options?) {
   //  先调用一次这个函数
   _effect.run()
 
-  return _effect
+  if (options) {
+    // 覆盖 _effect 的属性
+    Object.assign(_effect, options)
+  }
+
+  const runner = _effect.run.bind(_effect)
+  runner.effect = _effect
+  return runner
 }
 
 export class ReactiveEffect {
@@ -18,6 +25,8 @@ export class ReactiveEffect {
 
   deps = [] // 依赖列表
   _depsIndex = 0 //  deps列表的索引
+
+  _running = 0 // 是否正在运行  0表示没有运行
 
   public active = true // 是否激活
 
@@ -37,10 +46,13 @@ export class ReactiveEffect {
       // 目的是后续进比较
       this._depsIndex = 0
       this._trackId++
+      // 标记正在运行
+      this._running++
 
       return this.fn()
     } finally {
-      // 函数执行完毕后恢复上一个激活的 effect
+      // 标记不在运行
+      this._running--
 
       if (activeEffect.deps.length > activeEffect._depsIndex) {
         for (let i = activeEffect._depsIndex; i < activeEffect.deps.length; i++) {
@@ -51,6 +63,7 @@ export class ReactiveEffect {
         }
         activeEffect.deps.length = activeEffect._depsIndex
       }
+      // 函数执行完毕后恢复上一个激活的 effect
       activeEffect = lastEffect
     }
   }

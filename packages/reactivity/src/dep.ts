@@ -87,6 +87,9 @@ export function trigger(target: TargetMap, key: string | symbol, newValue, oldVa
 
 export function triggerEffects(dep) {
   for (const effect of dep.keys()) {
+    if (effect._running) {
+      return
+    }
     if (effect.scheduler) {
       effect.scheduler()
     }

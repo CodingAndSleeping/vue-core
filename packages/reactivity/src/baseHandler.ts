@@ -1,5 +1,7 @@
+import { isObject } from '@my-vue/shared'
 import { ReactiveFlags } from './contants'
 import { trigger, track } from './dep'
+import { reactive } from './reactive'
 
 // 响应性对象处理器
 export const mutableHandlers: ProxyHandler<any> = {
@@ -12,7 +14,14 @@ export const mutableHandlers: ProxyHandler<any> = {
     // 取值的时候依赖收集
     track(target, key)
 
-    return Reflect.get(target, key, receiver)
+    let res = Reflect.get(target, key, receiver)
+
+    // 如果取到的值是对象，则返回一个响应性对象, 递归代理
+    if (isObject(res)) {
+      return reactive(res)
+    }
+
+    return res
   },
 
   set(target, key, value, receiver) {
