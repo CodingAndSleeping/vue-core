@@ -1,5 +1,9 @@
 export let activeEffect: ReactiveEffect // 当前的 effect
 
+type TargetMap = WeakMap<any, Map<string | symbol, Map<ReactiveEffect, number>>>
+
+const targetMap: TargetMap = new WeakMap() // 存放依赖的对象和 key 映射关系
+
 export function effect(fn, options?) {
   // 创建一个响应性函数，数据变化后可以重新执行
 
@@ -70,5 +74,80 @@ export class ReactiveEffect {
 
   stop() {
     this.active = false
+  }
+}
+
+export function track(target: TargetMap, key: string | symbol) {
+  // 如果当前没有激活的 effect，则不进行依赖收集
+  if (!activeEffect) {
+    return
+  }
+
+  let depsMap = targetMap.get(target)
+  if (!depsMap) {
+    depsMap = new Map()
+    targetMap.set(target, depsMap)
+  }
+
+  let dep = depsMap.get(key)
+  if (!dep) {
+    dep = createDep(() => depsMap.delete(key), key)
+    depsMap.set(key, dep)
+  }
+
+  // 将当前的 effect 加入到 dep 里
+  trackEffects(activeEffect, dep)
+}
+
+function trackEffects(effect: ReactiveEffect, dep: Map<ReactiveEffect, number>) {
+  // 判断 dep 中是否已经有了当前的 effect， 有直接返回，不再收集
+  if (dep.get(effect) === effect._trackId) {
+    return
+  }
+
+  // 将当前的 effect 对应的值 设置为 effect._trackId
+  dep.set(effect, effect._trackId)
+
+  // 依次从 effect的 deps 数组中取出对应的 dep 比较，如果不一致，则替换
+  let oldDep = effect.deps[effect._depsIndex]
+  // 如果不一致
+  if (oldDep !== dep) {
+    if (oldDep) {
+      //旧的存在 就删除旧的
+      oldDep.delete(effect)
+      if (oldDep.size === 0) {
+        oldDep.cleanup() // 删除 key
+      }
+    }
+    // 替换新的 dep
+    effect.deps[effect._depsIndex] = dep
+    effect._depsIndex++
+  } else {
+    effect._depsIndex++
+  }
+}
+
+export function trigger(target: TargetMap, key: string | symbol, newValue, oldValue) {
+  const depsMap = targetMap.get(target) // 获取 对象对应的  Map
+  if (!depsMap) {
+    return
+  }
+
+  const dep = depsMap.get(key) // 获取 key 对应的 Map
+
+  if (dep) {
+    // 如果有 dep 说明有依赖，则触发依赖更新
+    triggerEffects(dep)
+  }
+}
+
+export function triggerEffects(dep) {
+  for (const effect of dep.keys()) {
+    if (effect._running) {
+      return
+    }
+    if (effect.scheduler) {
+      effect.scheduler()
+    }
   }
 }

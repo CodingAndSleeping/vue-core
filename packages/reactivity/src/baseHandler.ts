@@ -1,6 +1,6 @@
 import { isObject } from '@my-vue/shared'
 import { ReactiveFlags } from './contants'
-import { trigger, track } from './dep'
+import { trigger, track } from './effect'
 import { reactive } from './reactive'
 
 // 响应性对象处理器
