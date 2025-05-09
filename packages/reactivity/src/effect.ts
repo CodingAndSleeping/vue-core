@@ -1,3 +1,5 @@
+import { createDep } from './dep'
+
 export let activeEffect: ReactiveEffect // 当前的 effect
 
 type TargetMap = WeakMap<any, Map<string | symbol, Map<ReactiveEffect, number>>>
@@ -25,12 +27,12 @@ export function effect(fn, options?) {
 }
 
 export class ReactiveEffect {
-  _trackId = 0 // 用来记录当前 effect 执行了几次
+  public _trackId = 0 // 用来记录当前 effect 执行了几次
 
-  deps = [] // 依赖列表
-  _depsIndex = 0 //  deps列表的索引
+  public deps = [] // 依赖列表
+  public _depsLength = 0 //  deps列表的索引
 
-  _running = 0 // 是否正在运行  0表示没有运行
+  public _running = 0 // 是否正在运行  0表示没有运行
 
   public active = true // 是否激活
 
@@ -46,9 +48,9 @@ export class ReactiveEffect {
     try {
       activeEffect = this
 
-      // 每次执行函数前，将 _depsIndex 置为 0, _trackId 加 1
+      // 每次执行函数前，将 _depsLength 置为 0, _trackId 加 1
       // 目的是后续进比较
-      this._depsIndex = 0
+      this._depsLength = 0
       this._trackId++
       // 标记正在运行
       this._running++
@@ -58,14 +60,14 @@ export class ReactiveEffect {
       // 标记不在运行
       this._running--
 
-      if (activeEffect.deps.length > activeEffect._depsIndex) {
-        for (let i = activeEffect._depsIndex; i < activeEffect.deps.length; i++) {
+      if (activeEffect.deps.length > activeEffect._depsLength) {
+        for (let i = activeEffect._depsLength; i < activeEffect.deps.length; i++) {
           activeEffect.deps[i].delete(activeEffect) // 删除多余的 dep
           if (activeEffect.deps[i].size === 0) {
             activeEffect.deps[i].cleanup() // 删除 key
           }
         }
-        activeEffect.deps.length = activeEffect._depsIndex
+        activeEffect.deps.length = activeEffect._depsLength
       }
       // 函数执行完毕后恢复上一个激活的 effect
       activeEffect = lastEffect
@@ -91,7 +93,7 @@ export function track(target: TargetMap, key: string | symbol) {
 
   let dep = depsMap.get(key)
   if (!dep) {
-    dep = createDep(() => depsMap.delete(key), key)
+    dep = createDep(() => depsMap.delete(key))
     depsMap.set(key, dep)
   }
 
@@ -99,7 +101,7 @@ export function track(target: TargetMap, key: string | symbol) {
   trackEffects(activeEffect, dep)
 }
 
-function trackEffects(effect: ReactiveEffect, dep: Map<ReactiveEffect, number>) {
+export function trackEffects(effect: ReactiveEffect, dep: Map<ReactiveEffect, number>) {
   // 判断 dep 中是否已经有了当前的 effect， 有直接返回，不再收集
   if (dep.get(effect) === effect._trackId) {
     return
@@ -109,7 +111,7 @@ function trackEffects(effect: ReactiveEffect, dep: Map<ReactiveEffect, number>) 
   dep.set(effect, effect._trackId)
 
   // 依次从 effect的 deps 数组中取出对应的 dep 比较，如果不一致，则替换
-  let oldDep = effect.deps[effect._depsIndex]
+  let oldDep = effect.deps[effect._depsLength]
   // 如果不一致
   if (oldDep !== dep) {
     if (oldDep) {
@@ -120,10 +122,10 @@ function trackEffects(effect: ReactiveEffect, dep: Map<ReactiveEffect, number>) 
       }
     }
     // 替换新的 dep
-    effect.deps[effect._depsIndex] = dep
-    effect._depsIndex++
+    effect.deps[effect._depsLength] = dep
+    effect._depsLength++
   } else {
-    effect._depsIndex++
+    effect._depsLength++
   }
 }
 
