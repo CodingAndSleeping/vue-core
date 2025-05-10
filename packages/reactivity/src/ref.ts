@@ -1,7 +1,8 @@
 import { triggerRef } from 'vue'
-import { toReactive } from './reactive'
+import { reactive } from './reactive'
 import { activeEffect, trackEffects, triggerEffects } from './effect'
 import { createDep } from './dep'
+import { isObject } from '@my-vue/shared'
 
 export function ref(value) {
   return createRef(value)
@@ -20,7 +21,8 @@ class RefImpl {
 
   constructor(public rawValue) {
     // 如果 rawValue 是一个对象，将 rawValue 转为响应性对象
-    this._value = toReactive(rawValue)
+    this._value = convert(rawValue)
+    this.dep = createDep(() => (this.dep = void 0))
   }
 
   get value() {
@@ -41,27 +43,6 @@ class RefImpl {
   }
 }
 
-function trackRefValue(ref) {
-  if (activeEffect) {
-    ref.dep = createDep(() => (ref.dep = void 0))
-    trackEffects(activeEffect, ref.dep)
-  }
-}
-
-function triggerRefValue(ref) {
-  if (ref.dep) {
-    triggerEffects(ref.dep)
-  }
-}
-
-export function isRef(value) {
-  return !!value && value.__v_isRef
-}
-
-export function toRef(object, key) {
-  return new ObjectRefImpl(object, key)
-}
-
 class ObjectRefImpl {
   public __v_isRef = true // 标记是否是 ref 对象
 
@@ -74,6 +55,35 @@ class ObjectRefImpl {
   set value(newValue) {
     this.object[this.key] = newValue
   }
+}
+
+function trackRefValue(ref) {
+  if (activeEffect) {
+    trackEffects(activeEffect, ref.dep)
+  }
+}
+
+function triggerRefValue(ref) {
+  if (ref.dep) {
+    triggerEffects(ref.dep)
+  }
+}
+
+//  将一个变量转为响应性对象
+export function convert(value) {
+  return isObject(value) ? reactive(value) : value
+}
+
+export function isRef(value) {
+  return !!value.__v_isRef
+}
+
+export function unRef(ref) {
+  return isRef(ref) ? ref.value : ref
+}
+
+export function toRef(object, key) {
+  return new ObjectRefImpl(object, key)
 }
 
 export function toRefs(object) {
@@ -91,14 +101,15 @@ export function proxyRefs(objectWithRef) {
   return new Proxy(objectWithRef, {
     get(target, key, receiver) {
       let res = Reflect.get(target, key, receiver)
-      return isRef(res) ? res.value : res
+      return unRef(res)
     },
 
     set(target, key, value, receiver) {
       const oldValue = target[key]
       if (oldValue !== value) {
         if (isRef(oldValue)) {
-          oldValue.value = value
+          target[key].value = value
+          return target[key]
         } else {
           return Reflect.set(target, key, value, receiver)
         }

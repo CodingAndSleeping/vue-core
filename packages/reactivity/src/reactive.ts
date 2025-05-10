@@ -36,8 +36,3 @@ export function reactive(target) {
   // 创建响应性对象
   return createReactiveObject(target)
 }
-
-//  将一个变量转为响应性对象
-export function toReactive(value) {
-  return isObject(value) ? reactive(value) : value
-}
