@@ -36,3 +36,7 @@ export function reactive(target) {
   // 创建响应性对象
   return createReactiveObject(target)
 }
+
+export function isReactive(value) {
+  return !!(value && value[ReactiveFlags.IS_REACTIVE])
+}

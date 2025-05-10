@@ -6,6 +6,18 @@ type TargetMap = WeakMap<any, Map<string | symbol, Map<ReactiveEffect, number>>>
 
 const targetMap: TargetMap = new WeakMap() // 存放依赖的对象和 key 映射关系
 
+export function postCleanEffect(effect) {
+  if (effect.deps.length > effect._depsLength) {
+    for (let i = effect._depsLength; i < effect.deps.length; i++) {
+      effect.deps[i].delete(effect) // 删除多余的 dep
+      if (effect.deps[i].size === 0) {
+        effect.deps[i].cleanup() // 删除 key
+      }
+    }
+    effect.deps.length = effect._depsLength
+  }
+}
+
 export function effect(fn, options?) {
   // 创建一个响应性函数，数据变化后可以重新执行
 
@@ -60,15 +72,8 @@ export class ReactiveEffect {
       // 标记不在运行
       this._running--
 
-      if (activeEffect.deps.length > activeEffect._depsLength) {
-        for (let i = activeEffect._depsLength; i < activeEffect.deps.length; i++) {
-          activeEffect.deps[i].delete(activeEffect) // 删除多余的 dep
-          if (activeEffect.deps[i].size === 0) {
-            activeEffect.deps[i].cleanup() // 删除 key
-          }
-        }
-        activeEffect.deps.length = activeEffect._depsLength
-      }
+      postCleanEffect(this)
+
       // 函数执行完毕后恢复上一个激活的 effect
       activeEffect = lastEffect
     }
@@ -76,6 +81,8 @@ export class ReactiveEffect {
 
   stop() {
     this.active = false
+    this._depsLength = 0
+    postCleanEffect(this)
   }
 }
 
