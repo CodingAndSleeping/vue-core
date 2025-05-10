@@ -1,4 +1,3 @@
-import { triggerRef } from 'vue'
 import { reactive } from './reactive'
 import { activeEffect, trackEffects, triggerEffects } from './effect'
 import { createDep } from './dep'
@@ -57,13 +56,12 @@ class ObjectRefImpl {
   }
 }
 
-function trackRefValue(ref) {
+export function trackRefValue(ref) {
   if (activeEffect) {
     trackEffects(activeEffect, ref.dep)
   }
 }
-
-function triggerRefValue(ref) {
+export function triggerRefValue(ref) {
   if (ref.dep) {
     triggerEffects(ref.dep)
   }
