@@ -25,7 +25,7 @@ class ComputedRefImpl {
 
   public _effect: ReactiveEffect
 
-  public _dirty = true
+  public _dirty = true // 标记当前的计算属性是否是脏的，如果是脏的，需要重新计算
 
   public dep
 
