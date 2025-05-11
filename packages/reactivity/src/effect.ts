@@ -1,3 +1,4 @@
+import { extend } from '@my-vue/shared'
 import { createDep } from './dep'
 
 export let activeEffect: ReactiveEffect // 当前的 effect
@@ -30,7 +31,7 @@ export function effect(fn, options?) {
 
   if (options) {
     // 覆盖 _effect 的属性
-    Object.assign(_effect, options)
+    extend(_effect, options)
   }
 
   const runner = _effect.run.bind(_effect)
