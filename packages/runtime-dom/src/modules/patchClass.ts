@@ -1,7 +1,7 @@
 export default function patchClass(el, value) {
-  if (value === null) {
-    el.removeAttribute('class')
-  } else {
+  if (value) {
     el.setAttribute('class', value)
+  } else {
+    el.removeAttribute('class')
   }
 }
