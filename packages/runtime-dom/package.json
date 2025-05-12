@@ -22,6 +22,7 @@
   "license": "ISC",
   "packageManager": "pnpm@10.9.0",
   "dependencies": {
+    "@my-vue/runtime-core": "workspace:*",
     "@my-vue/shared": "workspace:*"
   }
 }
