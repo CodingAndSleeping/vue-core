@@ -13,6 +13,7 @@
     "baseUrl": ".", // 解析根路径
     "paths": {
       "@my-vue/*": ["packages/*/src"] // 路径映射
-    }
+    },
+    "types": ["vitest/globals"]
   }
 }
