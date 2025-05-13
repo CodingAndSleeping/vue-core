@@ -1,13 +1,8 @@
-import { isArray, isObject } from '@my-vue/shared'
-import { createVnode, isVnode } from './vnode'
+import { isArray, isObject } from '@my-vue/shared';
+import { createVnode, isVnode } from './vnode';
 
 export function h(type, propsOrChildren?, children?) {
-  const l = arguments.length
-
-  // 如果有一个参数
-  if (l === 1) {
-    return createVnode(type)
-  }
+  const l = arguments.length;
 
   // 如果只有两个参数
   if (l === 2) {
@@ -15,26 +10,25 @@ export function h(type, propsOrChildren?, children?) {
     if (isObject(propsOrChildren) && !isArray(propsOrChildren)) {
       // 如果第二个参数是一个虚拟节点，就作为  children
       if (isVnode(propsOrChildren)) {
-        return createVnode(type, null, [propsOrChildren])
+        return createVnode(type, null, [propsOrChildren]);
       }
-      // 否则就作为 props
-      return createVnode(type, propsOrChildren)
+      // 否则就是一个普通对象 就作为 props
+      return createVnode(type, propsOrChildren);
+    } else {
+      // 否则第二个参数是 数组 或 文本，就作为 children
+      return createVnode(type, null, propsOrChildren);
+    }
+  } else {
+    // 如果大于三个参数
+    if (l > 3) {
+      // 从第三个参数开始都是 children
+      children = Array.from(arguments).slice(2);
+    } else if (l === 3 && isVnode(children)) {
+      // 如果只有三个参数，且第三个参数是一个虚拟节点，就作为  children,并用数组包起来
+      children = [children];
     }
 
-    // 否则第二个参数是 数组 或 文本
-    return createVnode(type, null, propsOrChildren)
-  }
-
-  // 如果有三个参数
-  if (l === 3) {
-    if (isVnode(children)) {
-      return createVnode(type, propsOrChildren, [children])
-    }
-    return createVnode(type, propsOrChildren, children)
-  }
-
-  if (l > 3) {
-    children = Array.from(arguments).slice(2)
-    return createVnode(type, propsOrChildren, children)
+    // 其他情况 就直接传给 createVnode
+    return createVnode(type, propsOrChildren, children);
   }
 }
