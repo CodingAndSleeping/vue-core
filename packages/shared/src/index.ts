@@ -14,6 +14,10 @@ export function isArray(val: any): val is any[] {
   return Array.isArray(val)
 }
 
+
+// 判断是否是 on+一个大写字母的格式开头
+export const isOn = (key) => /^on[A-Z]/.test(key);
+
 export const extend = Object.assign
 
 export * from './shapeFlags'
