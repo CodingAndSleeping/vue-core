@@ -11,7 +11,7 @@ describe('ref', () => {
     const fn = vi.fn(() => num.value);
     effect(fn);
     num.value = 1;
-    expect(fn).toBeCalledTimes(2);
+    expect(fn).toHaveBeenCalledTimes(2);
   });
 
   test('ref 函数也可以创建一个对象类型的响应式数据', () => {
@@ -25,7 +25,7 @@ describe('ref', () => {
     const fn = vi.fn(() => obj.value.name);
     effect(fn);
     obj.value.name = 'tom';
-    expect(fn).toBeCalledTimes(2);
+    expect(fn).toHaveBeenCalledTimes(2);
   });
 
   test('isRef', () => {
