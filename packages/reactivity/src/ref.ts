@@ -85,7 +85,7 @@ export function toRef(object, key) {
 }
 
 export function toRefs(object) {
-  const res = {}
+  const res = {} as Record<string | symbol, any>;
 
   // 遍历 object 的 key，将每个 key 转为 ref 对象
   for (const key in object) {
