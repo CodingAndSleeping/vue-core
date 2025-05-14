@@ -12,7 +12,7 @@ describe('effect', () => {
     const fn = vi.fn(() => obj.count);
     effect(fn);
     obj.count++;
-    expect(fn).toBeCalledTimes(2);
+    expect(fn).toHaveBeenCalledTimes(2);
   });
 
   test('一个effect函数可以依赖多个响应性数据', () => {
@@ -33,8 +33,8 @@ describe('effect', () => {
     effect(fn1);
     effect(fn2);
     obj1.count++;
-    expect(fn1).toBeCalledTimes(2);
-    expect(fn2).toBeCalledTimes(2);
+    expect(fn1).toHaveBeenCalledTimes(2);
+    expect(fn2).toHaveBeenCalledTimes(2);
   });
 
   test('深层依赖的响应性数据发生变化应执行effect函数', () => {
@@ -46,7 +46,7 @@ describe('effect', () => {
     const fn = vi.fn(() => obj.children.name);
     effect(fn);
     obj.children.name = 'bar';
-    expect(fn).toBeCalledTimes(2);
+    expect(fn).toHaveBeenCalledTimes(2);
   });
 
   test('自定义scheller函数', () => {
@@ -60,7 +60,7 @@ describe('effect', () => {
     });
     runner = effect(fn, { scheduler });
     obj.count++;
-    expect(scheduler).toBeCalledTimes(1);
+    expect(scheduler).toHaveBeenCalledTimes(1);
   });
 
   test('停止收集依赖', () => {
@@ -69,11 +69,11 @@ describe('effect', () => {
     const runner = effect(fn);
 
     obj.count++;
-    expect(fn).toBeCalledTimes(2);
+    expect(fn).toHaveBeenCalledTimes(2);
 
     runner.effect.stop();
 
     obj.count++;
-    expect(fn).toBeCalledTimes(2);
+    expect(fn).toHaveBeenCalledTimes(2);
   });
 });
