@@ -1,5 +1,5 @@
 import { ShapeFlags } from '@my-vue/shared'
-import { isSameVnode } from './vnode'
+import { isSameVnode, Text } from './vnode'
 import getSequence from './getSequence'
 
 export function createRenderer(options) {
@@ -208,10 +208,10 @@ export function createRenderer(options) {
   // 比较新旧节点
   const patchElement = (n1, n2, container) => {
     // 保存一个旧 dom 元素  比较 dom 的属性的时候可以复用
-    let el = (n2.el = n1.el)
+    const el = (n2.el = n1.el)
 
-    let oldProps = n1.props || {}
-    let newProps = n2.props || {}
+    const oldProps = n1.props || {}
+    const newProps = n2.props || {}
 
     // 比较节点的属性
     patchProps(oldProps, newProps, el)
@@ -229,10 +229,30 @@ export function createRenderer(options) {
     }
   }
 
+  const processText = (n1, n2, container) => {
+    if (n1 === null) {
+      n2.el = hostCreateText(n2.children)
+      hostInsert(n2.el, container)
+    } else {
+      const el = (n2.el = n1.el)
+      if (n1.children !== n2.children) {
+        hostSetText(el, n2.children)
+      }
+    }
+  }
+
   const patch = (n1, n2, container, anchor = null) => {
     // 两次的虚拟节点是相同的 直接跳过
     if (n1 === n2) {
       return
+    }
+
+    const { type } = n2
+    switch (type) {
+      case Text:
+        processText(n1, n2, container)
+        break
+      default:
     }
 
     processElement(n1, n2, container, anchor)
@@ -242,12 +262,11 @@ export function createRenderer(options) {
   const render = (vnode, container) => {
     if (vnode === null && container._vnode) {
       unmount(container._vnode)
+    } else {
+      patch(container._vnode || null, vnode, container)
+      // 保存 vnode，方便下次比较
+      container._vnode = vnode
     }
-
-    patch(container._vnode || null, vnode, container)
-
-    // 保存 vnode，方便下次比较
-    container._vnode = vnode
   }
 
   return { render }

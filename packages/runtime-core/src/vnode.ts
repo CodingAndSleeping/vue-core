@@ -27,6 +27,8 @@ export function createVnode(type, props?, children?) {
   return vnode
 }
 
+export const Text = Symbol('Text')
+
 export function isVnode(value) {
   return value && value.__v_isVnode
 }
