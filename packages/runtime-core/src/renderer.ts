@@ -1,5 +1,5 @@
 import { ShapeFlags } from '@my-vue/shared'
-import { isSameVnode, Text } from './vnode'
+import { Fragment, isSameVnode, Text } from './vnode'
 import getSequence from './getSequence'
 
 export function createRenderer(options) {
@@ -43,7 +43,11 @@ export function createRenderer(options) {
   }
 
   const unmount = vnode => {
-    hostRemove(vnode.el)
+    if (vnode.type === Fragment) {
+      unmountChildren(vnode.children)
+    } else {
+      hostRemove(vnode.el)
+    }
   }
 
   const unmountChildren = children => {
@@ -241,6 +245,14 @@ export function createRenderer(options) {
     }
   }
 
+  const processFragment = (n1, n2, container) => {
+    if (n1 === null) {
+      mountChildren(n2.children, container)
+    } else {
+      patchChildren(n1, n2, container)
+    }
+  }
+
   const patch = (n1, n2, container, anchor = null) => {
     // 两次的虚拟节点是相同的 直接跳过
     if (n1 === n2) {
@@ -251,6 +263,9 @@ export function createRenderer(options) {
     switch (type) {
       case Text:
         processText(n1, n2, container)
+        break
+      case Fragment:
+        processFragment(n1, n2, container)
         break
       default:
     }
