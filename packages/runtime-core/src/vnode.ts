@@ -1,7 +1,7 @@
-import { isArray, isString, ShapeFlags } from '@my-vue/shared'
+import { isArray, isObject, isString, ShapeFlags } from '@my-vue/shared'
 
 export function createVnode(type, props?, children?) {
-  const shapeFlag = isString(type) ? ShapeFlags.ELEMENT : 0
+  const shapeFlag = isString(type) ? ShapeFlags.ELEMENT : isObject(type) ? ShapeFlags.STATEFUL_COMPONENT : 0
 
   const vnode = {
     __v_isVnode: true, // 标记为虚拟节点

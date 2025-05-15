@@ -1,6 +1,8 @@
 import { ShapeFlags } from '@my-vue/shared'
 import { Fragment, isSameVnode, Text } from './vnode'
 import getSequence from './getSequence'
+import { reactive, ReactiveEffect } from '@my-vue/reactivity'
+import { queueJob } from './scheduler'
 
 export function createRenderer(options) {
   const {
@@ -253,13 +255,53 @@ export function createRenderer(options) {
     }
   }
 
+  const mountComponent = (n1, n2, container, anchor) => {
+    const { data = () => {}, render } = n2.type
+    const state = reactive(data())
+
+    const instance = {
+      state,
+      vnode: n2,
+      subTree: null,
+      isMounted: false,
+      update: null,
+    }
+
+    const componentUpdateFn = () => {
+      if (!instance.isMounted) {
+        const subTree = render.call(state, state)
+        patch(null, subTree, container, anchor)
+        instance.subTree = subTree
+        instance.isMounted = true
+      } else {
+        const subTree = render.call(state, state)
+        patch(instance.subTree, subTree, container, anchor)
+        instance.isMounted = true
+      }
+    }
+
+    const effect = new ReactiveEffect(componentUpdateFn, () => queueJob(update))
+    const update = () => {
+      effect.run()
+    }
+
+    instance.update = update
+  }
+
+  const processComponent = (n1, n2, container, anchor) => {
+    if (n1 === null) {
+      mountComponent(n1, n2, container, anchor)
+    } else {
+    }
+  }
+
   const patch = (n1, n2, container, anchor = null) => {
     // 两次的虚拟节点是相同的 直接跳过
     if (n1 === n2) {
       return
     }
 
-    const { type } = n2
+    const { type, shapeFlag } = n2
     switch (type) {
       case Text:
         processText(n1, n2, container)
@@ -267,7 +309,15 @@ export function createRenderer(options) {
       case Fragment:
         processFragment(n1, n2, container)
         break
+
       default:
+        if (shapeFlag & ShapeFlags.ELEMENT) {
+          processElement(n1, n2, container, anchor)
+        } else if (shapeFlag & ShapeFlags.COMPONENT) {
+          // 组件的处理
+
+          processComponent(n1, n2, container, anchor)
+        }
     }
 
     processElement(n1, n2, container, anchor)
