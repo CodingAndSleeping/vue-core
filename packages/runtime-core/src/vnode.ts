@@ -17,6 +17,8 @@ export function createVnode(type, props?, children?) {
     if (isArray(children)) {
       // 如果是数组，就与 ARRAY_CHILDREN 进行 或运算
       vnode.shapeFlag |= ShapeFlags.ARRAY_CHILDREN
+    } else if (isObject(children)) {
+      vnode.shapeFlag |= ShapeFlags.SLOTS_CHILDREN
     } else {
       // 如果不是数组，就当作文本节点来处理，先转字符串 然后与 TEXT_CHILDREN 进行 或运算
       children = String(children)
