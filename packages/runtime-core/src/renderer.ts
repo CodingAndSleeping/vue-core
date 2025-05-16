@@ -256,6 +256,12 @@ export function createRenderer(options) {
     }
   }
 
+  const updateComponentPreRender = (instance, next) => {
+    instance.next = null
+    instance.vnode = next
+    updateProps(instance, instance.props, next.props)
+  }
+
   function setupRenderEffect(instance, container, anchor) {
     const { render } = instance
 
@@ -266,9 +272,14 @@ export function createRenderer(options) {
         instance.subTree = subTree
         instance.isMounted = true
       } else {
+        const { next } = instance
+        if (next) {
+          updateComponentPreRender(instance, next)
+        }
+
         const subTree = render.call(instance.proxy, instance.proxy)
         patch(instance.subTree, subTree, container, anchor)
-        instance.isMounted = true
+        instance.subTree = subTree
       }
     }
 
@@ -290,10 +301,62 @@ export function createRenderer(options) {
     setupRenderEffect(instance, container, anchor)
   }
 
+  const hasPropsChanged = (prevProps, nextProps) => {
+    let pKeys = Object.keys(prevProps)
+    let nKeys = Object.keys(nextProps)
+    if (nKeys.length !== pKeys.length) {
+      return true
+    }
+
+    for (let i = 0; i < nKeys.length; i++) {
+      const key = nKeys[i]
+      if (prevProps[key] !== nextProps[key]) {
+        return true
+      }
+    }
+
+    return false
+  }
+
+  const updateProps = (instance, prevProps, nextProps) => {
+    if (hasPropsChanged(prevProps, nextProps)) {
+      for (const key in nextProps) {
+        instance.props[key] = nextProps[key]
+      }
+
+      for (const key in instance.props) {
+        if (!(key in nextProps)) {
+          delete instance.props[key]
+        }
+      }
+    }
+  }
+
+  const shouleComponentUpdate = (n1, n2) => {
+    const { props: prevProps, children: prevChildren } = n1
+    const { props: nextProps, children: nextChildren } = n2
+
+    if (prevChildren || nextChildren) return true
+
+    if (prevProps === nextProps) return false
+
+    return hasPropsChanged(prevProps, nextProps)
+  }
+
+  const updateComponent = (n1, n2) => {
+    const instance = (n2.component = n1.component)
+
+    if (shouleComponentUpdate(n1, n2)) {
+      instance.next = n2
+      instance.update()
+    }
+  }
+
   const processComponent = (n1, n2, container, anchor) => {
     if (n1 === null) {
       mountComponent(n2, container, anchor)
     } else {
+      updateComponent(n1, n2)
     }
   }
 
@@ -304,7 +367,6 @@ export function createRenderer(options) {
     }
 
     const { type, shapeFlag } = n2
-
     switch (type) {
       case Text:
         processText(n1, n2, container)

@@ -14,7 +14,7 @@ export function createComponentInstance(vnode) {
     props: {},
     attrs: {},
     propsOptions: vnode.type.props,
-    components: null,
+    component: null,
     proxy: null, // 代理 props attrs data 让用户更方便访问
   }
 
@@ -79,11 +79,13 @@ export function setupComponent(instance) {
 
   instance.proxy = new Proxy(instance, handler)
 
-  const { data, render } = vnode.type
+  const { data = () => {}, render } = vnode.type
 
-  if (!isFunction(data)) return console.warn('data must be a function')
-
-  instance.data = reactive(data.call(instance.proxy))
+  if (!isFunction(data)) {
+    console.warn('data must be a function')
+  } else {
+    instance.data = reactive(data.call(instance.proxy))
+  }
 
   instance.render = render
 }
