@@ -1,4 +1,4 @@
-import { reactive } from '@my-vue/reactivity'
+import { proxyRefs, reactive } from '@my-vue/reactivity'
 import { hasOwn, isFunction } from '@my-vue/shared'
 
 export function createComponentInstance(vnode) {
@@ -16,6 +16,7 @@ export function createComponentInstance(vnode) {
     propsOptions: vnode.type.props,
     component: null,
     proxy: null, // 代理 props attrs data 让用户更方便访问
+    setupState: {},
   }
 
   return instance
@@ -48,11 +49,13 @@ const initProps = (instance, rawProps) => {
 
 const handler = {
   get(target, key) {
-    const { data, props } = target
+    const { data, props, setupState } = target
     if (data && hasOwn(data, key)) {
       return data[key]
     } else if (props && hasOwn(props, key)) {
       return props[key]
+    } else if (setupState && hasOwn(setupState, key)) {
+      return setupState[key]
     }
 
     const getter = publicProperty[key]
@@ -61,11 +64,13 @@ const handler = {
     }
   },
   set(target, key, value) {
-    const { data, props } = target
+    const { data, props, setupState } = target
     if (data && hasOwn(data, key)) {
       data[key] = value
     } else if (props && hasOwn(props, key)) {
       console.warn('props are readonly')
+    } else if (setupState && hasOwn(setupState, key)) {
+      setupState[key] = value
     }
 
     return true
@@ -79,7 +84,19 @@ export function setupComponent(instance) {
 
   instance.proxy = new Proxy(instance, handler)
 
-  const { data = () => {}, render } = vnode.type
+  const { data = () => {}, render, setup } = vnode.type
+
+  if (setup) {
+    const setupContext = {}
+
+    const setupResult = setup(instance.props, setupContext)
+
+    if (isFunction(setupResult)) {
+      instance.render = setupResult
+    } else {
+      instance.setupState = proxyRefs(setupResult)
+    }
+  }
 
   if (!isFunction(data)) {
     console.warn('data must be a function')
@@ -87,5 +104,7 @@ export function setupComponent(instance) {
     instance.data = reactive(data.call(instance.proxy))
   }
 
-  instance.render = render
+  if (!instance.render) {
+    instance.render = render
+  }
 }
