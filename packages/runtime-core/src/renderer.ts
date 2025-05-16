@@ -1,8 +1,9 @@
-import { ShapeFlags } from '@my-vue/shared'
+import { hasOwn, ShapeFlags } from '@my-vue/shared'
 import { Fragment, isSameVnode, Text } from './vnode'
 import getSequence from './getSequence'
 import { reactive, ReactiveEffect } from '@my-vue/reactivity'
 import { queueJob } from './scheduler'
+import { createComponentInstance, setupComponent } from './component'
 
 export function createRenderer(options) {
   const {
@@ -255,26 +256,17 @@ export function createRenderer(options) {
     }
   }
 
-  const mountComponent = (n1, n2, container, anchor) => {
-    const { data = () => {}, render } = n2.type
-    const state = reactive(data())
-
-    const instance = {
-      state,
-      vnode: n2,
-      subTree: null,
-      isMounted: false,
-      update: null,
-    }
+  function setupRenderEffect(instance, container, anchor) {
+    const { render } = instance
 
     const componentUpdateFn = () => {
       if (!instance.isMounted) {
-        const subTree = render.call(state, state)
+        const subTree = render.call(instance.proxy, instance.proxy)
         patch(null, subTree, container, anchor)
         instance.subTree = subTree
         instance.isMounted = true
       } else {
-        const subTree = render.call(state, state)
+        const subTree = render.call(instance.proxy, instance.proxy)
         patch(instance.subTree, subTree, container, anchor)
         instance.isMounted = true
       }
@@ -285,12 +277,22 @@ export function createRenderer(options) {
       effect.run()
     }
 
+    update()
+
     instance.update = update
+  }
+
+  const mountComponent = (vnode, container, anchor) => {
+    const instance = (vnode.component = createComponentInstance(vnode))
+
+    setupComponent(instance)
+
+    setupRenderEffect(instance, container, anchor)
   }
 
   const processComponent = (n1, n2, container, anchor) => {
     if (n1 === null) {
-      mountComponent(n1, n2, container, anchor)
+      mountComponent(n2, container, anchor)
     } else {
     }
   }
@@ -302,6 +304,7 @@ export function createRenderer(options) {
     }
 
     const { type, shapeFlag } = n2
+
     switch (type) {
       case Text:
         processText(n1, n2, container)
@@ -319,8 +322,6 @@ export function createRenderer(options) {
           processComponent(n1, n2, container, anchor)
         }
     }
-
-    processElement(n1, n2, container, anchor)
   }
 
   // render 函数 将虚拟节点 vnode 渲染到 container 容器中
