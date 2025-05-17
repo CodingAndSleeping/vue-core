@@ -278,6 +278,16 @@ export function createRenderer(options) {
     updateProps(instance, instance.props, next.props)
   }
 
+  const renderComponent = instance => {
+    const { render, vnode, proxy, props, attrs } = instance
+
+    if (vnode.shapeFlag & ShapeFlags.STATEFUL_COMPONENT) {
+      return render.call(proxy, proxy)
+    } else {
+      return vnode.type(attrs)
+    }
+  }
+
   function setupRenderEffect(instance, container, anchor) {
     const { render } = instance
 
@@ -289,7 +299,7 @@ export function createRenderer(options) {
           invokeArray(bm)
         }
 
-        const subTree = render.call(instance.proxy, instance.proxy)
+        const subTree = renderComponent(instance)
         patch(null, subTree, container, anchor)
         instance.subTree = subTree
         instance.isMounted = true
@@ -307,7 +317,7 @@ export function createRenderer(options) {
           invokeArray(bu)
         }
 
-        const subTree = render.call(instance.proxy, instance.proxy)
+        const subTree = renderComponent(instance)
         patch(instance.subTree, subTree, container, anchor)
         instance.subTree = subTree
 
