@@ -1,5 +1,5 @@
 import { isArray, isFunction, isObject, isString, ShapeFlags } from '@my-vue/shared'
-import { isTeleport } from './Teleport'
+import { isTeleport } from './components/Teleport'
 
 export function createVnode(type, props?, children?) {
   const shapeFlag = isString(type)

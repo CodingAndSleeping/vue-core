@@ -27,10 +27,9 @@ export function createRenderer(options) {
   }
 
   const mountElement = (vnode, container, anchor, parentComponent) => {
-    const { type, children, props, shapeFlag } = vnode
+    const { type, children, props, shapeFlag, transition } = vnode
 
-    const el = hostCreateElement(type)
-    vnode.el = el
+    const el = (vnode.el = hostCreateElement(type))
 
     if (props) {
       for (const key in props) {
@@ -47,11 +46,21 @@ export function createRenderer(options) {
       mountChildren(children, el, parentComponent)
     }
 
+    if (transition) {
+      transition.beforeEnter(el)
+    }
+
     hostInsert(el, container, anchor)
+
+    if (transition) {
+      transition.enter(el)
+    }
   }
 
   const unmount = vnode => {
-    const { shapeFlag } = vnode
+    const { shapeFlag, transition, el } = vnode
+
+    const performLeave = () => hostRemove(el)
 
     if (vnode.type === Fragment) {
       unmountChildren(vnode.children)
@@ -67,7 +76,11 @@ export function createRenderer(options) {
     } else if (shapeFlag & ShapeFlags.TELEPORT) {
       vnode.type.remove(vnode, unmountChildren)
     } else {
-      hostRemove(vnode.el)
+      if (transition) {
+        transition.leave(el, performLeave)
+      } else {
+        performLeave()
+      }
     }
   }
 
@@ -180,7 +193,7 @@ export function createRenderer(options) {
   // 比较 新旧节点的子节点
   const patchChildren = (n1, n2, el, parentComponent) => {
     const c1 = n1.children
-    const c2 = n2.children.map(child => normalizeVnode(child))
+    const c2 = n2.children && n2.children.map(child => normalizeVnode(child))
 
     // .map(item => {
     //   if (typeof item === 'number' || typeof item === 'string') {
@@ -287,15 +300,17 @@ export function createRenderer(options) {
     instance.next = null
     instance.vnode = next
     updateProps(instance, instance.props, next.props)
+
+    Object.assign(instance.slots, next.children)
   }
 
   const renderComponent = instance => {
-    const { render, vnode, proxy, props, attrs } = instance
+    const { render, vnode, proxy, slots, attrs } = instance
 
     if (vnode.shapeFlag & ShapeFlags.STATEFUL_COMPONENT) {
       return render.call(proxy, proxy)
     } else {
-      return vnode.type(attrs)
+      return vnode.type(attrs, { slots })
     }
   }
 
@@ -338,9 +353,7 @@ export function createRenderer(options) {
     }
 
     const effect = new ReactiveEffect(componentUpdateFn, () => queueJob(update))
-    const update = () => {
-      effect.run()
-    }
+    const update = () => effect.run()
 
     update()
 
