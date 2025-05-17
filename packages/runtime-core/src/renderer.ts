@@ -1,7 +1,7 @@
 import { ShapeFlags } from '@my-vue/shared'
 import { Fragment, isSameVnode, Text } from './vnode'
 import getSequence from './getSequence'
-import { ReactiveEffect } from '@my-vue/reactivity'
+import { isRef, ReactiveEffect } from '@my-vue/reactivity'
 import { queueJob } from './scheduler'
 import { createComponentInstance, setupComponent } from './component'
 import { invokeArray } from './apiLifecycle'
@@ -33,7 +33,9 @@ export function createRenderer(options) {
 
     if (props) {
       for (const key in props) {
-        hostPatchProp(el, key, null, props[key])
+        if (key !== 'ref') {
+          hostPatchProp(el, key, null, props[key])
+        }
       }
     }
 
@@ -214,7 +216,9 @@ export function createRenderer(options) {
   // 比较 新旧节点的属性
   const patchProps = (oldProps, newProps, el) => {
     for (const key in newProps) {
-      hostPatchProp(el, key, oldProps[key], newProps[key])
+      if (key !== 'ref') {
+        hostPatchProp(el, key, oldProps[key], newProps[key])
+      }
     }
 
     for (const key in oldProps) {
@@ -390,13 +394,22 @@ export function createRenderer(options) {
     }
   }
 
+  const setRef = (rawRef, vnode) => {
+    const value =
+      vnode.shapeFlag & ShapeFlags.STATEFUL_COMPONENT ? vnode.component.exposed || vnode.component.proxy : vnode.el
+
+    if (isRef(rawRef)) {
+      rawRef.value = value
+    }
+  }
+
   const patch = (n1, n2, container, anchor = null) => {
     // 两次的虚拟节点是相同的 直接跳过
     if (n1 === n2) {
       return
     }
 
-    const { type, shapeFlag } = n2
+    const { type, shapeFlag, ref } = n2
     switch (type) {
       case Text:
         processText(n1, n2, container)
@@ -413,6 +426,10 @@ export function createRenderer(options) {
         } else if (shapeFlag & ShapeFlags.COMPONENT) {
           processComponent(n1, n2, container, anchor)
         }
+    }
+
+    if (ref !== null) {
+      setRef(ref, n2)
     }
   }
 
