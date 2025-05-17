@@ -64,6 +64,8 @@ export function createRenderer(options) {
       if (um) {
         invokeArray(um)
       }
+    } else if (shapeFlag & ShapeFlags.TELEPORT) {
+      vnode.type.remove(vnode, unmountChildren)
     } else {
       hostRemove(vnode.el)
     }
@@ -440,7 +442,17 @@ export function createRenderer(options) {
         if (shapeFlag & ShapeFlags.ELEMENT) {
           processElement(n1, n2, container, anchor, parentComponent)
         } else if (shapeFlag & ShapeFlags.TELEPORT) {
-          // ...
+          type.process(n1, n2, anchor, parentComponent, {
+            mountChildren,
+            patchChildren,
+            move(vnode, container, anchor) {
+              if (vnode.component) {
+                hostInsert(vnode.component.subTree.el, container, anchor)
+              } else {
+                hostInsert(vnode.el, container, anchor)
+              }
+            },
+          })
         } else if (shapeFlag & ShapeFlags.COMPONENT) {
           processComponent(n1, n2, container, anchor, parentComponent)
         }
