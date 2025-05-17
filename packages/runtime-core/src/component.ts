@@ -1,10 +1,7 @@
 import { proxyRefs, reactive } from '@my-vue/reactivity'
 import { hasOwn, isFunction, ShapeFlags } from '@my-vue/shared'
 
-export function createComponentInstance(vnode) {
-  // const { data = () => {}, render, props: propsOptions } = vnode.type
-  // const state = reactive(data())
-
+export function createComponentInstance(vnode, parent) {
   const instance = {
     data: null,
     vnode,
@@ -18,7 +15,9 @@ export function createComponentInstance(vnode) {
     propsOptions: vnode.type.props,
     component: null,
     proxy: null, // 代理 props attrs data 让用户更方便访问
-    setupState: {},
+    setupState: {}, // setup函数返回的 state 对象
+    parent,
+    provides: parent ? parent.provides : Object.create(null),
   }
 
   return instance
@@ -116,6 +115,7 @@ export function setupComponent(instance) {
     }
 
     setCurrentInsatance(instance)
+
     const setupResult = setup(instance.props, setupContext)
     unsetCurrentInstance()
     if (isFunction(setupResult)) {

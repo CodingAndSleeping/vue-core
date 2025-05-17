@@ -1,7 +1,16 @@
-import { isArray, isObject, isString, ShapeFlags } from '@my-vue/shared'
+import { isArray, isFunction, isObject, isString, ShapeFlags } from '@my-vue/shared'
+import { isTeleport } from './Teleport'
 
 export function createVnode(type, props?, children?) {
-  const shapeFlag = isString(type) ? ShapeFlags.ELEMENT : isObject(type) ? ShapeFlags.STATEFUL_COMPONENT : 0
+  const shapeFlag = isString(type)
+    ? ShapeFlags.ELEMENT
+    : isTeleport(type)
+    ? ShapeFlags.TELEPORT
+    : isObject(type)
+    ? ShapeFlags.STATEFUL_COMPONENT
+    : isFunction(type)
+    ? ShapeFlags.FUNCTIONAL_COMPONENT
+    : 0
 
   const vnode = {
     __v_isVnode: true, // 标记为虚拟节点
@@ -11,6 +20,7 @@ export function createVnode(type, props?, children?) {
     key: props && props.key, // diff算法需要用到的 key
     el: null, // 虚拟节点对应的真实 dom 元素
     shapeFlag, // 子节点类型标识
+    ref: props?.ref,
   }
 
   if (children) {
@@ -38,4 +48,12 @@ export function isVnode(value) {
 
 export function isSameVnode(n1, n2) {
   return n1.type === n2.type && n1.key === n2.key
+}
+
+export function normalizeVnode(child) {
+  if (typeof child === 'string' || typeof child === 'number') {
+    return createVnode(Text, null, String(child))
+  } else {
+    return child
+  }
 }

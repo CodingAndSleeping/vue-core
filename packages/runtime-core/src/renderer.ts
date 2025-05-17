@@ -1,5 +1,5 @@
 import { ShapeFlags } from '@my-vue/shared'
-import { Fragment, isSameVnode, Text } from './vnode'
+import { Fragment, isSameVnode, normalizeVnode, Text } from './vnode'
 import getSequence from './getSequence'
 import { isRef, ReactiveEffect } from '@my-vue/reactivity'
 import { queueJob } from './scheduler'
@@ -19,13 +19,14 @@ export function createRenderer(options) {
     patchProp: hostPatchProp,
   } = options
 
-  const mountChildren = (children, container) => {
+  const mountChildren = (children, container, parentComponent) => {
     for (let i = 0; i < children.length; i++) {
-      patch(null, children[i], container)
+      children[i] = normalizeVnode(children[i])
+      patch(null, children[i], container, null, parentComponent)
     }
   }
 
-  const mountElement = (vnode, container, anchor) => {
+  const mountElement = (vnode, container, anchor, parentComponent) => {
     const { type, children, props, shapeFlag } = vnode
 
     const el = hostCreateElement(type)
@@ -42,7 +43,8 @@ export function createRenderer(options) {
     if (shapeFlag & ShapeFlags.TEXT_CHILDREN) {
       hostSetElementText(el, children)
     } else if (shapeFlag & ShapeFlags.ARRAY_CHILDREN) {
-      mountChildren(children, el)
+      console.log(1)
+      mountChildren(children, el, parentComponent)
     }
 
     hostInsert(el, container, anchor)
@@ -174,9 +176,16 @@ export function createRenderer(options) {
   }
 
   // 比较 新旧节点的子节点
-  const patchChildren = (n1, n2, el) => {
+  const patchChildren = (n1, n2, el, parentComponent) => {
     const c1 = n1.children
-    const c2 = n2.children
+    const c2 = n2.children.map(child => normalizeVnode(child))
+
+    // .map(item => {
+    //   if (typeof item === 'number' || typeof item === 'string') {
+    //     return createVnode(Text, null, item)
+    //   }
+    //   return item
+    // })
 
     const prevShapeFlag = n1.shapeFlag
     const shapeFlag = n2.shapeFlag
@@ -207,7 +216,7 @@ export function createRenderer(options) {
 
         // 新的如果是数组，就添加新的
         if (shapeFlag & ShapeFlags.ARRAY_CHILDREN) {
-          mountChildren(c2, el)
+          mountChildren(c2, el, parentComponent)
         }
       }
     }
@@ -229,7 +238,7 @@ export function createRenderer(options) {
   }
 
   // 比较新旧节点
-  const patchElement = (n1, n2, container) => {
+  const patchElement = (n1, n2, container, parentComponent) => {
     // 保存一个旧 dom 元素  比较 dom 的属性的时候可以复用
     const el = (n2.el = n1.el)
 
@@ -240,15 +249,15 @@ export function createRenderer(options) {
     patchProps(oldProps, newProps, el)
 
     // 比较节点的子节点
-    patchChildren(n1, n2, el)
+    patchChildren(n1, n2, el, parentComponent)
   }
 
   // 对元素的处理
-  const processElement = (n1, n2, container, anchor) => {
+  const processElement = (n1, n2, container, anchor, parentComponent) => {
     if (n1 === null) {
-      mountElement(n2, container, anchor)
+      mountElement(n2, container, anchor, parentComponent)
     } else {
-      patchElement(n1, n2, container)
+      patchElement(n1, n2, container, parentComponent)
     }
   }
 
@@ -264,11 +273,11 @@ export function createRenderer(options) {
     }
   }
 
-  const processFragment = (n1, n2, container) => {
+  const processFragment = (n1, n2, container, parentComponent) => {
     if (n1 === null) {
-      mountChildren(n2.children, container)
+      mountChildren(n2.children, container, parentComponent)
     } else {
-      patchChildren(n1, n2, container)
+      patchChildren(n1, n2, container, parentComponent)
     }
   }
 
@@ -289,8 +298,6 @@ export function createRenderer(options) {
   }
 
   function setupRenderEffect(instance, container, anchor) {
-    const { render } = instance
-
     const componentUpdateFn = () => {
       const { bm, m, bu, u } = instance
 
@@ -300,7 +307,7 @@ export function createRenderer(options) {
         }
 
         const subTree = renderComponent(instance)
-        patch(null, subTree, container, anchor)
+        patch(null, subTree, container, anchor, instance)
         instance.subTree = subTree
         instance.isMounted = true
 
@@ -318,7 +325,8 @@ export function createRenderer(options) {
         }
 
         const subTree = renderComponent(instance)
-        patch(instance.subTree, subTree, container, anchor)
+
+        patch(instance.subTree, subTree, container, anchor, instance)
         instance.subTree = subTree
 
         if (u) {
@@ -337,8 +345,8 @@ export function createRenderer(options) {
     instance.update = update
   }
 
-  const mountComponent = (vnode, container, anchor) => {
-    const instance = (vnode.component = createComponentInstance(vnode))
+  const mountComponent = (vnode, container, anchor, parentComponent) => {
+    const instance = (vnode.component = createComponentInstance(vnode, parentComponent))
 
     setupComponent(instance)
 
@@ -396,9 +404,9 @@ export function createRenderer(options) {
     }
   }
 
-  const processComponent = (n1, n2, container, anchor) => {
+  const processComponent = (n1, n2, container, anchor, parentComponent) => {
     if (n1 === null) {
-      mountComponent(n2, container, anchor)
+      mountComponent(n2, container, anchor, parentComponent)
     } else {
       updateComponent(n1, n2)
     }
@@ -413,7 +421,7 @@ export function createRenderer(options) {
     }
   }
 
-  const patch = (n1, n2, container, anchor = null) => {
+  const patch = (n1, n2, container, anchor = null, parentComponent = null) => {
     // 两次的虚拟节点是相同的 直接跳过
     if (n1 === n2) {
       return
@@ -425,16 +433,16 @@ export function createRenderer(options) {
         processText(n1, n2, container)
         break
       case Fragment:
-        processFragment(n1, n2, container)
+        processFragment(n1, n2, container, parentComponent)
         break
 
       default:
         if (shapeFlag & ShapeFlags.ELEMENT) {
-          processElement(n1, n2, container, anchor)
+          processElement(n1, n2, container, anchor, parentComponent)
         } else if (shapeFlag & ShapeFlags.TELEPORT) {
           // ...
         } else if (shapeFlag & ShapeFlags.COMPONENT) {
-          processComponent(n1, n2, container, anchor)
+          processComponent(n1, n2, container, anchor, parentComponent)
         }
     }
 
