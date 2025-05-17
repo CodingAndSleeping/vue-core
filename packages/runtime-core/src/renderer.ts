@@ -4,6 +4,7 @@ import getSequence from './getSequence'
 import { ReactiveEffect } from '@my-vue/reactivity'
 import { queueJob } from './scheduler'
 import { createComponentInstance, setupComponent } from './component'
+import { invokeArray } from './apiLifecycle'
 
 export function createRenderer(options) {
   const {
@@ -47,10 +48,18 @@ export function createRenderer(options) {
 
   const unmount = vnode => {
     const { shapeFlag } = vnode
+
     if (vnode.type === Fragment) {
       unmountChildren(vnode.children)
     } else if (shapeFlag & ShapeFlags.COMPONENT) {
+      const { bum, um } = vnode.component
+      if (bum) {
+        invokeArray(bum)
+      }
       unmount(vnode.component.subTree)
+      if (um) {
+        invokeArray(um)
+      }
     } else {
       hostRemove(vnode.el)
     }
@@ -269,20 +278,38 @@ export function createRenderer(options) {
     const { render } = instance
 
     const componentUpdateFn = () => {
+      const { bm, m, bu, u } = instance
+
       if (!instance.isMounted) {
+        if (bm) {
+          invokeArray(bm)
+        }
+
         const subTree = render.call(instance.proxy, instance.proxy)
         patch(null, subTree, container, anchor)
         instance.subTree = subTree
         instance.isMounted = true
+
+        if (m) {
+          invokeArray(m)
+        }
       } else {
         const { next } = instance
         if (next) {
           updateComponentPreRender(instance, next)
         }
 
+        if (bu) {
+          invokeArray(bu)
+        }
+
         const subTree = render.call(instance.proxy, instance.proxy)
         patch(instance.subTree, subTree, container, anchor)
         instance.subTree = subTree
+
+        if (u) {
+          invokeArray(u)
+        }
       }
     }
 
@@ -381,9 +408,9 @@ export function createRenderer(options) {
       default:
         if (shapeFlag & ShapeFlags.ELEMENT) {
           processElement(n1, n2, container, anchor)
+        } else if (shapeFlag & ShapeFlags.TELEPORT) {
+          // ...
         } else if (shapeFlag & ShapeFlags.COMPONENT) {
-          // 组件的处理
-
           processComponent(n1, n2, container, anchor)
         }
     }

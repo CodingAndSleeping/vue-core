@@ -115,8 +115,9 @@ export function setupComponent(instance) {
       },
     }
 
+    setCurrentInsatance(instance)
     const setupResult = setup(instance.props, setupContext)
-
+    unsetCurrentInstance()
     if (isFunction(setupResult)) {
       instance.render = setupResult
     } else {
@@ -133,4 +134,15 @@ export function setupComponent(instance) {
   if (!instance.render) {
     instance.render = render
   }
+}
+
+export let currentInstance = null
+export function getCurrentInstance() {
+  return currentInstance
+}
+export function setCurrentInsatance(instance) {
+  currentInstance = instance
+}
+export function unsetCurrentInstance() {
+  currentInstance = null
 }
