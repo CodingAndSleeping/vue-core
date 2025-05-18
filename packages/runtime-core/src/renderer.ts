@@ -1,10 +1,11 @@
-import { ShapeFlags } from '@my-vue/shared'
+import { isArray, isFunction, ShapeFlags } from '@my-vue/shared'
 import { Fragment, isSameVnode, normalizeVnode, Text } from './vnode'
 import getSequence from './getSequence'
 import { isRef, ReactiveEffect } from '@my-vue/reactivity'
 import { queueJob } from './scheduler'
 import { createComponentInstance, setupComponent } from './component'
 import { invokeArray } from './apiLifecycle'
+import { isKeepAlive } from '@my-vue/runtime-dom'
 
 export function createRenderer(options) {
   const {
@@ -42,7 +43,6 @@ export function createRenderer(options) {
     if (shapeFlag & ShapeFlags.TEXT_CHILDREN) {
       hostSetElementText(el, children)
     } else if (shapeFlag & ShapeFlags.ARRAY_CHILDREN) {
-      console.log(1)
       mountChildren(children, el, parentComponent)
     }
 
@@ -57,19 +57,23 @@ export function createRenderer(options) {
     }
   }
 
-  const unmount = vnode => {
+  const unmount = (vnode, parentComponent) => {
     const { shapeFlag, transition, el } = vnode
 
-    const performLeave = () => hostRemove(el)
+    const performLeave = () => {
+      hostRemove(el)
+    }
 
-    if (vnode.type === Fragment) {
-      unmountChildren(vnode.children)
+    if (shapeFlag & ShapeFlags.COMPONENT_SHOULD_KEEP_ALIVE) {
+      parentComponent.ctx.deactivate(vnode)
+    } else if (vnode.type === Fragment) {
+      unmountChildren(vnode.children, parentComponent)
     } else if (shapeFlag & ShapeFlags.COMPONENT) {
       const { bum, um } = vnode.component
       if (bum) {
         invokeArray(bum)
       }
-      unmount(vnode.component.subTree)
+      unmount(vnode.component.subTree, vnode.component)
       if (um) {
         invokeArray(um)
       }
@@ -84,15 +88,15 @@ export function createRenderer(options) {
     }
   }
 
-  const unmountChildren = children => {
+  const unmountChildren = (children, parentComponent) => {
     for (let i = 0; i < children.length; i++) {
       let child = children[i]
-      unmount(child)
+      unmount(child, parentComponent)
     }
   }
 
   // 比较 两个数组子节点的差异 diff
-  const patchKeyedChildren = (c1, c2, el) => {
+  const patchKeyedChildren = (c1, c2, el, parentComponent) => {
     let i = 0
 
     let e1 = c1.length - 1 // 旧的最后一个索引
@@ -140,7 +144,7 @@ export function createRenderer(options) {
       // 旧的多
       if (i <= e1) {
         while (i <= e1) {
-          unmount(c1[i])
+          unmount(c1[i], parentComponent)
           i++
         }
       }
@@ -164,7 +168,7 @@ export function createRenderer(options) {
         const key = vnode.key
         const newIndex = keyToNewIndexMap.get(key)
         if (newIndex === undefined) {
-          unmount(vnode)
+          unmount(vnode, parentComponent)
         } else {
           newIndexToOldMapIndex[newIndex - s2] = i + 1
           patch(vnode, c2[newIndex], el)
@@ -193,21 +197,14 @@ export function createRenderer(options) {
   // 比较 新旧节点的子节点
   const patchChildren = (n1, n2, el, parentComponent) => {
     const c1 = n1.children
-    const c2 = n2.children && n2.children.map(child => normalizeVnode(child))
-
-    // .map(item => {
-    //   if (typeof item === 'number' || typeof item === 'string') {
-    //     return createVnode(Text, null, item)
-    //   }
-    //   return item
-    // })
+    const c2 = isArray(n2.children) ? n2.children.map(child => normalizeVnode(child)) : n2.children
 
     const prevShapeFlag = n1.shapeFlag
     const shapeFlag = n2.shapeFlag
 
     if (shapeFlag & ShapeFlags.TEXT_CHILDREN) {
       if (prevShapeFlag & ShapeFlags.ARRAY_CHILDREN) {
-        unmountChildren(c1) // 旧的是数组的话 移除旧的
+        unmountChildren(c1, parentComponent) // 旧的是数组的话 移除旧的
       }
 
       // 旧的不是数组，也就是文本，判断一下新旧相不相等 不相等直接替换
@@ -218,10 +215,10 @@ export function createRenderer(options) {
       if (prevShapeFlag & ShapeFlags.ARRAY_CHILDREN) {
         if (shapeFlag & ShapeFlags.ARRAY_CHILDREN) {
           // 新旧都是数组  diff 算法
-          patchKeyedChildren(c1, c2, el)
+          patchKeyedChildren(c1, c2, el, parentComponent)
         } else {
           // 旧的是数组，新的不是数组也不是文本，也就是空，就移除旧的
-          unmountChildren(c1)
+          unmountChildren(c1, parentComponent)
         }
       } else {
         // 旧的是文本，就把旧的清空
@@ -299,7 +296,7 @@ export function createRenderer(options) {
   const updateComponentPreRender = (instance, next) => {
     instance.next = null
     instance.vnode = next
-    updateProps(instance, instance.props, next.props)
+    updateProps(instance, instance.props, next.props || {})
 
     Object.assign(instance.slots, next.children)
   }
@@ -363,6 +360,16 @@ export function createRenderer(options) {
   const mountComponent = (vnode, container, anchor, parentComponent) => {
     const instance = (vnode.component = createComponentInstance(vnode, parentComponent))
 
+    if (isKeepAlive(vnode.type)) {
+      instance.ctx.renderer = {
+        createElement: hostCreateElement,
+        move(vnode, container, anchor) {
+          hostInsert(vnode.component.subTree.el, container, anchor)
+        },
+        unmount,
+      }
+    }
+
     setupComponent(instance)
 
     setupRenderEffect(instance, container, anchor)
@@ -407,7 +414,7 @@ export function createRenderer(options) {
 
     if (prevProps === nextProps) return false
 
-    return hasPropsChanged(prevProps, nextProps)
+    return hasPropsChanged(prevProps, nextProps || {})
   }
 
   const updateComponent = (n1, n2) => {
@@ -421,7 +428,11 @@ export function createRenderer(options) {
 
   const processComponent = (n1, n2, container, anchor, parentComponent) => {
     if (n1 === null) {
-      mountComponent(n2, container, anchor, parentComponent)
+      if (n2.shapeFlag & ShapeFlags.COMPONENT_KEPT_ALIVE) {
+        parentComponent.ctx.activate(n2, container, anchor)
+      } else {
+        mountComponent(n2, container, anchor, parentComponent)
+      }
     } else {
       updateComponent(n1, n2)
     }
@@ -440,6 +451,12 @@ export function createRenderer(options) {
     // 两次的虚拟节点是相同的 直接跳过
     if (n1 === n2) {
       return
+    }
+
+    // 直接移除老的dom元素，初始化新的dom元素
+    if (n1 && !isSameVnode(n1, n2)) {
+      unmount(n1, parentComponent)
+      n1 = null // 就会执行后续的n2的初始化
     }
 
     const { type, shapeFlag, ref } = n2
@@ -479,7 +496,7 @@ export function createRenderer(options) {
   // render 函数 将虚拟节点 vnode 渲染到 container 容器中
   const render = (vnode, container) => {
     if (vnode === null && container._vnode) {
-      unmount(container._vnode)
+      unmount(container._vnode, null)
     } else {
       patch(container._vnode || null, vnode, container)
       // 保存 vnode，方便下次比较

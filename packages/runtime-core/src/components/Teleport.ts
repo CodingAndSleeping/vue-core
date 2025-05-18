@@ -34,4 +34,4 @@ export const Teleport = {
   },
 }
 
-export const isTeleport = value => value.__isTeleport
+export const isTeleport = value => value && value.__isTeleport

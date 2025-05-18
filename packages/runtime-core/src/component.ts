@@ -17,6 +17,8 @@ export function createComponentInstance(vnode, parent) {
     proxy: null, // 代理 props attrs data 让用户更方便访问
     setupState: {}, // setup函数返回的 state 对象
     parent,
+
+    ctx: {} as any,
     provides: parent ? parent.provides : Object.create(null),
   }
 
